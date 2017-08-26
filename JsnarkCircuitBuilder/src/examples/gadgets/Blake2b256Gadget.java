@@ -32,80 +32,75 @@ public class Blake2b256Gadget extends Gadget {
 			{10, 2, 8, 4, 7, 6, 1, 5, 15, 11, 9, 14, 3, 12, 13, 0}
 	};
 
-	// the key of blake2b in zcash "ZcashComputehSig"
-	private static final BigInteger Key = new BigInteger("5a63617368436f6d7075746568536967", 16);
-	private static final int KeyLenInBytes = 16;
 	private static final BigInteger finalFlags = new BigInteger("FFFFFFFFFFFFFFFF", 16);
 	// for blake2b-256
 	private static final int OutputLengthInBytes = 32;
 
-	private Wire[] unpaddedInputs;
+    private Wire[] unpaddedInputs;
+    private Wire[] unpaddedKeys;
 
 	private int bitwidthPerInputElement;
-	private int totalLengthInBytes;
+    private int inputTotalLengthInBytes;
+    
+    private int bitwidthPerKeyElement;
+	private int keyTotalLengthInBytes;
 
 	private Wire[] preparedInputBits;
 	private Wire[] output;
 
-	public Blake2b256Gadget(Wire[] ins, int bitWidthPerInputElement, int totalLengthInBytes, boolean binaryOutput,
-						 boolean paddingRequired, String... desc) {
+	public Blake2b256Gadget(Wire[] ins, int bitWidthPerInputElement, int inputTotalLengthInBytes,
+                            Wire[] key, int bitWidthPerKeyElement, int keyTotalLengthInBytes,
+                            String... desc) {
 
 		super(desc);
-		if (totalLengthInBytes * 8 > ins.length * bitWidthPerInputElement
-				|| totalLengthInBytes * 8 < (ins.length - 1) * bitWidthPerInputElement) {
+		if (inputTotalLengthInBytes * 8 > ins.length * bitWidthPerInputElement
+				|| inputTotalLengthInBytes * 8 < (ins.length - 1) * bitWidthPerInputElement) {
 			throw new IllegalArgumentException("Inconsistent Length Information");
 		}
 
-		this.unpaddedInputs = ins;
+        this.unpaddedInputs = ins;
 		this.bitwidthPerInputElement = bitWidthPerInputElement;
-		this.totalLengthInBytes = totalLengthInBytes;
+        this.inputTotalLengthInBytes = inputTotalLengthInBytes;
+        
+        this.unpaddedKeys = key;
+        this.bitwidthPerKeyElement = bitWidthPerKeyElement;
+        this.keyTotalLengthInBytes = keyTotalLengthInBytes;
 
 		buildCircuit();
 	}
 
 	protected void buildCircuit() {
-		Wire keyWire = generator.createConstantWire(Key);
-
 		Wire[] outDigest = new Wire[8];
-		Wire[] hWires = new Wire[H.length];
-		for (int i = 0; i < H.length; i++) {
-			hWires[i] = generator.createConstantWire(H[i]);
-		}
 
 		//h0 = h0 xor 0x0101kknn
 		//where kk is Key Length (in bytes)
 		//nn is Desired Hash Length (in bytes)
-		long tmp = 0x0101 * 0x10000 + KeyLenInBytes * 0x100 + OutputLengthInBytes;
-		hWires[0] = hWires[0].xorBitwise(tmp, 64, "h0 xor 0x0101kknn");
-
-		//compress key
-		Wire[] key_chunk = generator.generateZeroWireArray(128);
-		Wire[] keyWireBytes = keyWire.getBitWires(KeyLenInBytes * 8).packBitsIntoWords(8);
-		for (int i = 0; i < KeyLenInBytes; i++) {
-			key_chunk[i] = keyWireBytes[KeyLenInBytes- 1 - i];
-			generator.addDebugInstruction(key_chunk[i], "key_chunk"+i);
+		long tmp = 0x0101 * 0x10000 + keyTotalLengthInBytes * 0x100 + OutputLengthInBytes;       
+        Wire[] hWires = new Wire[H.length];
+        hWires[0] = generator.createConstantWire(H[0].xor(BigInteger.valueOf(tmp)));
+		for (int i = 1; i < H.length; i++) {
+			hWires[i] = generator.createConstantWire(H[i]);
 		}
-		//compress(hWires, key_chunk, 0, false);
 
 		//Each time we Compress we record how many bytes have been compressed
 		// cBytesCompressed = 0
 		// cBytesRemaining  = cbMessageLen
 		int cBytesCompressed = 0;
-		int cBytesRemaining = totalLengthInBytes;
+		int cBytesRemaining = inputTotalLengthInBytes;
 
 		// pad with zeros to make key 128-bytes
 		// then prepend it to the message M
 		cBytesRemaining = cBytesRemaining + 128;
 		preparedInputBits = new Wire[cBytesRemaining];
 		Arrays.fill(preparedInputBits, generator.getZeroWire());
-		System.arraycopy(key_chunk, 0, preparedInputBits, 0, 128);
-		System.arraycopy(unpaddedInputs, 0, preparedInputBits, 128, totalLengthInBytes);
+		System.arraycopy(unpaddedKeys, 0, preparedInputBits, 0, keyTotalLengthInBytes);
+		System.arraycopy(unpaddedInputs, 0, preparedInputBits, 128, inputTotalLengthInBytes);
 
 		// Compress whole 128-byte chunks of the message, except the last chunk
 		int chunk_index = 0;
 		while (cBytesRemaining > 128) {
-			// chunk = get next 128 bytes of message M
-			Wire[] chunk = generator.generateZeroWireArray(128);
+            // chunk = get next 128 bytes of message M
+			Wire[] chunk = new Wire[128];
 			System.arraycopy(preparedInputBits, chunk_index * 128, chunk, 0, 128);
 
 			cBytesCompressed = cBytesCompressed + 128;
