@@ -3,6 +3,9 @@
  *******************************************************************************/
 package examples.generators;
 
+import java.util.Arrays;
+import java.math.BigInteger;
+
 import circuit.eval.CircuitEvaluator;
 import circuit.structure.CircuitGenerator;
 import circuit.structure.Wire;
@@ -10,8 +13,8 @@ import examples.gadgets.Blake2b256Gadget;
 
 public class Blake2b256CircuitGenerator extends CircuitGenerator {
 
-    private Wire[] inputWires;
-    private Wire[] keyWires;
+    private Wire[] chunks;
+	private int chunksLen;
 	private Blake2b256Gadget Blake2b256Gadget;
 
 	public Blake2b256CircuitGenerator(String circuitName) {
@@ -20,27 +23,31 @@ public class Blake2b256CircuitGenerator extends CircuitGenerator {
 
 	@Override
 	protected void buildCircuit() {
-		
-		// assuming the circuit input will be 64 bytes
-        inputWires = createInputWireArray(64);
-        // assuming the circuit key will be 16 bytes
-        keyWires = createInputWireArray(16);
-		// this gadget is not applying any padding.
-		Blake2b256Gadget = new Blake2b256Gadget(inputWires, 8, 64, keyWires, 8, 16);
-		Wire[] digest = Blake2b256Gadget.getOutputWires();
-		makeOutputArray(digest, "digest");		
+		int inputLen = 64 + 128;
+		int padLen = (inputLen + 127) & (~127);
+		chunksLen = padLen / 8; //chunk size is 64bit(8bytes)
+		chunks = createInputWireArray(chunksLen);
+		Wire[] digest = new Blake2b256Gadget(chunks, 64, 16, "").getOutputWires();
+		makeOutputArray(digest);
 	}
 
 	@Override
-	public void generateSampleInput(CircuitEvaluator evaluator) {
-        String inputStr = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
+	public void generateSampleInput(CircuitEvaluator e) {
+		String inputStr = "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijkl";
         String keyStr = "ZcashComputehSig";
-		for (int i = 0; i < inputWires.length; i++) {
-			evaluator.setWireValue(inputWires[i], inputStr.charAt(i));
-        }
-        for (int i = 0; i < keyWires.length; i++) {
-			evaluator.setWireValue(keyWires[i], keyStr.charAt(i));
+		byte[] chunksBuf = new byte[chunksLen*8];
+		Arrays.fill(chunksBuf, (byte)0);
+		System.arraycopy(keyStr.getBytes(), 0, chunksBuf, 0, keyStr.length());
+		System.arraycopy(inputStr.getBytes(), 0, chunksBuf, 128, inputStr.length());
+		BigInteger[] values = new BigInteger[chunksLen];
+		for (int i = 0; i < chunksLen; i++) {
+			byte[] tmp = new byte[8];
+			for (int j = 0; j < 8; j++) {
+				tmp[j] = chunksBuf[i * 8 + 8 - 1 - j];
+			}
+			values[i] = new BigInteger(tmp);
 		}
+		e.setWireValue(chunks, values);
 	}
 
 	public static void main(String[] args) throws Exception {

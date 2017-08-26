@@ -36,34 +36,23 @@ public class Blake2b256Gadget extends Gadget {
 	// for blake2b-256
 	private static final int OutputLengthInBytes = 32;
 
-    private Wire[] unpaddedInputs;
-    private Wire[] unpaddedKeys;
+    private Wire[] chunks;
 
-	private int bitwidthPerInputElement;
     private int inputTotalLengthInBytes;
-    
-    private int bitwidthPerKeyElement;
 	private int keyTotalLengthInBytes;
 
-	private Wire[] preparedInputBits;
 	private Wire[] output;
 
-	public Blake2b256Gadget(Wire[] ins, int bitWidthPerInputElement, int inputTotalLengthInBytes,
-                            Wire[] key, int bitWidthPerKeyElement, int keyTotalLengthInBytes,
+	public Blake2b256Gadget(Wire[] chunks, int inputTotalLengthInBytes, int keyTotalLengthInBytes,
                             String... desc) {
 
 		super(desc);
-		if (inputTotalLengthInBytes * 8 > ins.length * bitWidthPerInputElement
-				|| inputTotalLengthInBytes * 8 < (ins.length - 1) * bitWidthPerInputElement) {
+		if (((inputTotalLengthInBytes + 128 + 127) & (~127L)) !=  chunks.length * 8) {
 			throw new IllegalArgumentException("Inconsistent Length Information");
 		}
 
-        this.unpaddedInputs = ins;
-		this.bitwidthPerInputElement = bitWidthPerInputElement;
+        this.chunks = chunks;
         this.inputTotalLengthInBytes = inputTotalLengthInBytes;
-        
-        this.unpaddedKeys = key;
-        this.bitwidthPerKeyElement = bitWidthPerKeyElement;
         this.keyTotalLengthInBytes = keyTotalLengthInBytes;
 
 		buildCircuit();
@@ -91,17 +80,14 @@ public class Blake2b256Gadget extends Gadget {
 		// pad with zeros to make key 128-bytes
 		// then prepend it to the message M
 		cBytesRemaining = cBytesRemaining + 128;
-		preparedInputBits = new Wire[cBytesRemaining];
-		Arrays.fill(preparedInputBits, generator.getZeroWire());
-		System.arraycopy(unpaddedKeys, 0, preparedInputBits, 0, keyTotalLengthInBytes);
-		System.arraycopy(unpaddedInputs, 0, preparedInputBits, 128, inputTotalLengthInBytes);
 
 		// Compress whole 128-byte chunks of the message, except the last chunk
 		int chunk_index = 0;
 		while (cBytesRemaining > 128) {
-            // chunk = get next 128 bytes of message M
-			Wire[] chunk = new Wire[128];
-			System.arraycopy(preparedInputBits, chunk_index * 128, chunk, 0, 128);
+			// chunk = get next 128 bytes of message M
+			// chunk size is 64bit/8bytes
+			Wire[] chunk = new Wire[16];
+			System.arraycopy(chunks, chunk_index * 16, chunk, 0, 16);
 
 			cBytesCompressed = cBytesCompressed + 128;
 			cBytesRemaining = cBytesRemaining - 128;
@@ -110,11 +96,8 @@ public class Blake2b256Gadget extends Gadget {
 		}
 
 		// padding the last chunk
-		Wire[] chunk = new Wire[128];
-		for (int i = 0; i < 128; i++) {
-			chunk[i] = generator.getZeroWire();
-		}
-		System.arraycopy(preparedInputBits, chunk_index * 128, chunk, 0, cBytesRemaining);
+		Wire[] chunk = new Wire[16];
+		System.arraycopy(chunks, chunk_index * 16, chunk, 0, 16);
 		cBytesCompressed = cBytesCompressed + cBytesRemaining;
 		compress(hWires, chunk, cBytesCompressed, true);
 
@@ -162,13 +145,7 @@ public class Blake2b256Gadget extends Gadget {
 		for (int i = 0; i < 16; i++) {
 			generator.addDebugInstruction(chunk[i], "chunk"+i);
 		}
-		Wire[] m = new Wire[16];
-		Arrays.fill(m, generator.getZeroWire());
-		for (int i = 0; i < 16; i++) {
-			for (int j = 0; j < 8; j++) {
-				m[i] = m[i].shiftLeft(64, 8).add(chunk[i * 8 + 8 - 1 - j]).trimBits(65, 64);
-			}
-		}
+		Wire[] m = chunk;
 		for  (int i = 0; i < 16; i++) {
 			generator.addDebugInstruction(m[i], "m"+i);
 		}

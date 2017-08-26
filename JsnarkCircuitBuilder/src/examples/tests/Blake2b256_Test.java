@@ -3,6 +3,9 @@
  *******************************************************************************/
 package examples.tests;
 
+import java.util.Arrays;
+import java.math.BigInteger;
+
 import junit.framework.TestCase;
 
 import org.junit.Test;
@@ -29,23 +32,34 @@ public class Blake2b256_Test extends TestCase {
 
 		CircuitGenerator generator = new CircuitGenerator("Blake2b256_Test1") {
 
-            Wire[] inputWires;
-            Wire[] keyWires;
+			Wire[] chunks;
+			int chunksLen;
 
 			@Override
 			protected void buildCircuit() {
-                inputWires = createInputWireArray(inputStr.length());
-                keyWires = createInputWireArray(keyStr.length());
-				Wire[] digest = new Blake2b256Gadget(inputWires, 8, inputStr.length(), keyWires, 8, keyStr.length(), "").getOutputWires();
+				int inputLen = inputStr.length() + 128;
+				int padLen = (inputLen + 127) & (~127);
+				chunksLen = padLen / 8; //chunk size is 64bit(8bytes)
+                chunks = createInputWireArray(chunksLen);
+				Wire[] digest = new Blake2b256Gadget(chunks, inputStr.length(), keyStr.length(), "").getOutputWires();
 				makeOutputArray(digest);
 			}
 
 			@Override
 			public void generateSampleInput(CircuitEvaluator e) {
-                // no input needed
-                for (int i = 0; i < keyStr.length(); i++) {
-					e.setWireValue(keyWires[i], keyStr.charAt(i));
+				byte[] chunksBuf = new byte[chunksLen*8];
+				Arrays.fill(chunksBuf, (byte)0);
+				System.arraycopy(keyStr.getBytes(), 0, chunksBuf, 0, keyStr.length());
+				System.arraycopy(inputStr.getBytes(), 0, chunksBuf, 128, inputStr.length());
+				BigInteger[] values = new BigInteger[chunksLen];
+                for (int i = 0; i < chunksLen; i++) {
+					byte[] tmp = new byte[8];
+					for (int j = 0; j < 8; j++) {
+						tmp[j] = chunksBuf[i * 8 + 8 - 1 - j];
+					}
+					values[i] = new BigInteger(tmp);
 				}
+				e.setWireValue(chunks, values);
 			}
 		};
 
@@ -70,25 +84,34 @@ public class Blake2b256_Test extends TestCase {
 
 		CircuitGenerator generator = new CircuitGenerator("Blake2b256_Test2") {
 
-            Wire[] inputWires;
-            Wire[] keyWires;
+            Wire[] chunks;
+			int chunksLen;
 
 			@Override
 			protected void buildCircuit() {
-                inputWires = createInputWireArray(inputStr.length());
-                keyWires = createInputWireArray(keyStr.length());
-				Wire[] digest = new Blake2b256Gadget(inputWires, 8, inputStr.length(), keyWires, 8, keyStr.length(), "").getOutputWires();
+				int inputLen = inputStr.length() + 128;
+				int padLen = (inputLen + 127) & (~127);
+				chunksLen = padLen / 8; //chunk size is 64bit(8bytes)
+                chunks = createInputWireArray(chunksLen);
+				Wire[] digest = new Blake2b256Gadget(chunks, inputStr.length(), keyStr.length(), "").getOutputWires();
 				makeOutputArray(digest);
 			}
 
 			@Override
 			public void generateSampleInput(CircuitEvaluator e) {
-				for (int i = 0; i < inputStr.length(); i++) {
-					e.setWireValue(inputWires[i], inputStr.charAt(i));
-                }
-                for (int i = 0; i < keyStr.length(); i++) {
-                    e.setWireValue(keyWires[i], keyStr.charAt(i));
-                }
+				byte[] chunksBuf = new byte[chunksLen*8];
+				Arrays.fill(chunksBuf, (byte)0);
+				System.arraycopy(keyStr.getBytes(), 0, chunksBuf, 0, keyStr.length());
+				System.arraycopy(inputStr.getBytes(), 0, chunksBuf, 128, inputStr.length());
+				BigInteger[] values = new BigInteger[chunksLen];
+                for (int i = 0; i < chunksLen; i++) {
+					byte[] tmp = new byte[8];
+					for (int j = 0; j < 8; j++) {
+						tmp[j] = chunksBuf[i * 8 + 8 - 1 - j];
+					}
+					values[i] = new BigInteger(tmp);
+				}
+				e.setWireValue(chunks, values);
 			}
 		};
 
@@ -113,25 +136,34 @@ public class Blake2b256_Test extends TestCase {
 
 		CircuitGenerator generator = new CircuitGenerator("Blake2b256_Test3") {
 
-            Wire[] inputWires;
-            Wire[] keyWires;
+            Wire[] chunks;
+			int chunksLen;
 
 			@Override
 			protected void buildCircuit() {
-                inputWires = createInputWireArray(inputStr.length());
-                keyWires = createInputWireArray(keyStr.length());
-				Wire[] digest = new Blake2b256Gadget(inputWires, 8, inputStr.length(), keyWires, 8, keyStr.length(), "").getOutputWires();
+				int inputLen = inputStr.length() + 128;
+				int padLen = (inputLen + 127) & (~127);
+				chunksLen = padLen / 8; //chunk size is 64bit(8bytes)
+                chunks = createInputWireArray(chunksLen);
+				Wire[] digest = new Blake2b256Gadget(chunks, inputStr.length(), keyStr.length(), "").getOutputWires();
 				makeOutputArray(digest);
 			}
 
 			@Override
 			public void generateSampleInput(CircuitEvaluator e) {
-				for (int i = 0; i < inputStr.length(); i++) {
-					e.setWireValue(inputWires[i], inputStr.charAt(i));
-                }
-                for (int i = 0; i < keyStr.length(); i++) {
-                    e.setWireValue(keyWires[i], keyStr.charAt(i));
-                }
+				byte[] chunksBuf = new byte[chunksLen*8];
+				Arrays.fill(chunksBuf, (byte)0);
+				System.arraycopy(keyStr.getBytes(), 0, chunksBuf, 0, keyStr.length());
+				System.arraycopy(inputStr.getBytes(), 0, chunksBuf, 128, inputStr.length());
+				BigInteger[] values = new BigInteger[chunksLen];
+                for (int i = 0; i < chunksLen; i++) {
+					byte[] tmp = new byte[8];
+					for (int j = 0; j < 8; j++) {
+						tmp[j] = chunksBuf[i * 8 + 8 - 1 - j];
+					}
+					values[i] = new BigInteger(tmp);
+				}
+				e.setWireValue(chunks, values);
 			}
 		};
 
@@ -156,25 +188,34 @@ public class Blake2b256_Test extends TestCase {
 
 		CircuitGenerator generator = new CircuitGenerator("Blake2b256_Test4") {
 
-            Wire[] inputWires;
-            Wire[] keyWires;
+            Wire[] chunks;
+			int chunksLen;
 
 			@Override
 			protected void buildCircuit() {
-                inputWires = createInputWireArray(inputStr.length());
-                keyWires = createInputWireArray(keyStr.length());
-				Wire[] digest = new Blake2b256Gadget(inputWires, 8, inputStr.length(), keyWires, 8, keyStr.length(), "").getOutputWires();
+				int inputLen = inputStr.length() + 128;
+				int padLen = (inputLen + 127) & (~127);
+				chunksLen = padLen / 8; //chunk size is 64bit(8bytes)
+                chunks = createInputWireArray(chunksLen);
+				Wire[] digest = new Blake2b256Gadget(chunks, inputStr.length(), keyStr.length(), "").getOutputWires();
 				makeOutputArray(digest);
 			}
 
 			@Override
 			public void generateSampleInput(CircuitEvaluator e) {
-				for (int i = 0; i < inputStr.length(); i++) {
-					e.setWireValue(inputWires[i], inputStr.charAt(i));
-                }
-                for (int i = 0; i < keyStr.length(); i++) {
-                    e.setWireValue(keyWires[i], keyStr.charAt(i));
-                }
+				byte[] chunksBuf = new byte[chunksLen*8];
+				Arrays.fill(chunksBuf, (byte)0);
+				System.arraycopy(keyStr.getBytes(), 0, chunksBuf, 0, keyStr.length());
+				System.arraycopy(inputStr.getBytes(), 0, chunksBuf, 128, inputStr.length());
+				BigInteger[] values = new BigInteger[chunksLen];
+                for (int i = 0; i < chunksLen; i++) {
+					byte[] tmp = new byte[8];
+					for (int j = 0; j < 8; j++) {
+						tmp[j] = chunksBuf[i * 8 + 8 - 1 - j];
+					}
+					values[i] = new BigInteger(tmp);
+				}
+				e.setWireValue(chunks, values);
 			}
 		};
 
@@ -198,25 +239,34 @@ public class Blake2b256_Test extends TestCase {
 
 		CircuitGenerator generator = new CircuitGenerator("Blake2b256_Test4") {
 
-            Wire[] inputWires;
-            Wire[] keyWires;
+            Wire[] chunks;
+			int chunksLen;
 
 			@Override
 			protected void buildCircuit() {
-                inputWires = createInputWireArray(inputStr.length());
-                keyWires = createInputWireArray(keyStr.length());
-				Wire[] digest = new Blake2b256Gadget(inputWires, 8, inputStr.length(), keyWires, 8, keyStr.length(), "").getOutputWires();
+				int inputLen = inputStr.length() + 128;
+				int padLen = (inputLen + 127) & (~127);
+				chunksLen = padLen / 8; //chunk size is 64bit(8bytes)
+                chunks = createInputWireArray(chunksLen);
+				Wire[] digest = new Blake2b256Gadget(chunks, inputStr.length(), keyStr.length(), "").getOutputWires();
 				makeOutputArray(digest);
 			}
 
 			@Override
 			public void generateSampleInput(CircuitEvaluator e) {
-				for (int i = 0; i < inputStr.length(); i++) {
-					e.setWireValue(inputWires[i], inputStr.charAt(i));
-                }
-                for (int i = 0; i < keyStr.length(); i++) {
-                    e.setWireValue(keyWires[i], keyStr.charAt(i));
-                }
+				byte[] chunksBuf = new byte[chunksLen*8];
+				Arrays.fill(chunksBuf, (byte)0);
+				System.arraycopy(keyStr.getBytes(), 0, chunksBuf, 0, keyStr.length());
+				System.arraycopy(inputStr.getBytes(), 0, chunksBuf, 128, inputStr.length());
+				BigInteger[] values = new BigInteger[chunksLen];
+                for (int i = 0; i < chunksLen; i++) {
+					byte[] tmp = new byte[8];
+					for (int j = 0; j < 8; j++) {
+						tmp[j] = chunksBuf[i * 8 + 8 - 1 - j];
+					}
+					values[i] = new BigInteger(tmp);
+				}
+				e.setWireValue(chunks, values);
 			}
 		};
 
